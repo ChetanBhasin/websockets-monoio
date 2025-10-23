@@ -4,7 +4,7 @@
 //! WebSocket API and streaming real-time trade data.
 
 use anyhow::Result;
-use fastwebsockets_monoio::{Frame, OpCode};
+use fastwebsockets::{Frame, OpCode};
 use websockets_monoio::WsClient;
 
 #[monoio::main]

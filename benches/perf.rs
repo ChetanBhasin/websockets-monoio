@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use criterion::{Criterion, criterion_group, criterion_main};
-use fastwebsockets_monoio::{Frame, OpCode, Role, WebSocket};
+use fastwebsockets::{Frame, OpCode, Role, WebSocket};
 use monoio::net::{TcpListener, TcpStream};
 use monoio_compat::{AsyncReadExt, AsyncWriteExt, StreamWrapper};
 use sha1::{Digest, Sha1};

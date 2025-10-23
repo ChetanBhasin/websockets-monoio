@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/crates/l/websockets-monoio.svg)](https://github.com/ChetanBhasin/websockets-monoio#license)
 [![Downloads](https://img.shields.io/crates/d/websockets-monoio.svg)](https://crates.io/crates/websockets-monoio)
 
-A high-performance WebSocket client for the [`monoio`](https://docs.rs/monoio) async runtime. It dials both `ws://` and `wss://` endpoints, performs the HTTP upgrade handshake, and hands you a fully configured [`fastwebsockets_monoio::WebSocket`] client stream.
+A high-performance WebSocket client for the [`monoio`](https://docs.rs/monoio) async runtime. It dials both `ws://` and `wss://` endpoints, performs the HTTP upgrade handshake, and hands you a fully configured [`fastwebsockets::WebSocket`] client stream.
 
 **Note:** Documentation is AI generated.
 
@@ -26,7 +26,7 @@ Add the crate and its companion dependencies to your project:
 [dependencies]
 websockets-monoio = "0.1.1"
 monoio = "0.2"
-fastwebsockets-monoio = "0.10"
+fastwebsockets = "0.10"
 anyhow = "1.0"
 ```
 
@@ -37,7 +37,7 @@ The crate targets Rust 1.90.0 or newer (see `Cargo.toml`).
 ### Basic WebSocket connection
 
 ```rust
-use fastwebsockets_monoio::{Frame, OpCode};
+use fastwebsockets::{Frame, OpCode};
 use websockets_monoio::WsClient;
 
 #[monoio::main]
@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
 ### Streaming example
 
 ```rust
-use fastwebsockets_monoio::{Frame, OpCode};
+use fastwebsockets::{Frame, OpCode};
 use websockets_monoio::WsClient;
 
 #[monoio::main]
@@ -119,7 +119,7 @@ Further examples live in `examples/`:
 ## API overview
 
 - `WsClient::connect(url, extra_headers)` performs DNS resolution, TCP/TLS setup, and the HTTP upgrade handshake before returning a `WebSocket<WsStream>`.
-- `WsClient::into_inner()` gives direct access to the underlying `fastwebsockets_monoio::WebSocket`.
+- `WsClient::into_inner()` gives direct access to the underlying `fastwebsockets::WebSocket`.
 - `WsStream` is the enum used by the client (`Plain` TCP or `Tls` over TCP). It implements `monoio_compat::AsyncRead` and `AsyncWrite`.
 - Supporting modules such as `http_upgrade`, `tls`, and `url` are re-exported for advanced use-cases if you want to build your own handshake flow.
 

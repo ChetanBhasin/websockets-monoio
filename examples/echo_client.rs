@@ -4,7 +4,7 @@
 //! and prints the echoed response.
 
 use anyhow::Result;
-use fastwebsockets_monoio::{Frame, OpCode};
+use fastwebsockets::{Frame, OpCode};
 use websockets_monoio::WsClient;
 
 #[monoio::main]

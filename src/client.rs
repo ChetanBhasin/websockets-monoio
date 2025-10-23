@@ -1,5 +1,5 @@
 use anyhow::Result;
-use fastwebsockets_monoio::{Role, WebSocket};
+use fastwebsockets::{Role, WebSocket};
 use monoio::net::TcpStream;
 use monoio_compat::{AsyncRead, AsyncWrite, StreamWrapper};
 

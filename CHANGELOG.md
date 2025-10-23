@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 - monoio 0.2 (async runtime with io_uring)
-- fastwebsockets-monoio 0.10 (WebSocket protocol implementation)
+- fastwebsockets 0.10 (WebSocket protocol implementation)
 - rustls 0.23 (TLS implementation)
 - monoio-rustls 0.4 (TLS integration for monoio)
 - And other essential dependencies for networking and crypto

@@ -21,14 +21,14 @@
 //! [dependencies]
 //! websockets-monoio = "0.1"
 //! monoio = "0.2"
-//! fastwebsockets-monoio = "0.10"
+//! fastwebsockets = "0.10"
 //! anyhow = "1.0"
 //! ```
 //!
 //! ## Basic Example
 //!
 //! ```no_run
-//! use fastwebsockets_monoio::{Frame, OpCode};
+//! use fastwebsockets::{Frame, OpCode};
 //! use websockets_monoio::WsClient;
 //!
 //! #[monoio::main]
@@ -65,7 +65,7 @@
 //! ## Cryptocurrency Exchange Example
 //!
 //! ```no_run
-//! use fastwebsockets_monoio::{Frame, OpCode};
+//! use fastwebsockets::{Frame, OpCode};
 //! use websockets_monoio::WsClient;
 //!
 //! #[monoio::main]
