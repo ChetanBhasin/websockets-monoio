@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust: [stable, beta, nightly]
+        include:
+          - os: ubuntu-latest
+            rust: 1.90.0
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.rust }}-
+          ${{ runner.os }}-cargo-
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+      if: matrix.rust == 'stable' && matrix.os == 'ubuntu-latest'
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      if: matrix.rust == 'stable'
+
+    - name: Build
+      run: cargo build --verbose --all-targets
+
+    - name: Run tests
+      run: cargo test --verbose --all-features
+
+    - name: Run doc tests
+      run: cargo test --doc
+      if: matrix.rust == 'stable'
+
+    - name: Check docs
+      run: cargo doc --no-deps --document-private-items --all-features
+      if: matrix.rust == 'stable' && matrix.os == 'ubuntu-latest'
+
+  msrv:
+    name: Minimum Supported Rust Version
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust 1.90.0
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: 1.90.0
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Check MSRV
+      run: cargo check --all-features
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Generate coverage report
+      run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      with:
+        file: cobertura.xml
+        fail_ci_if_error: false
+
+  # Performance regression testing on Linux only (where io_uring is available)
+  benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run benchmarks
+      run: cargo bench --all-features
+      continue-on-error: true

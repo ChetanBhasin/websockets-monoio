@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Enable version updates for Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+    reviewers:
+      - "ChetanBhasin"
+    assignees:
+      - "ChetanBhasin"
+    commit-message:
+      prefix: "cargo"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "rust"
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+    reviewers:
+      - "ChetanBhasin"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 5
