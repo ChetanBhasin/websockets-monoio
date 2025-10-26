@@ -1,8 +1,11 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD as b64};
 use httparse::Status;
+use memchr::memmem::Finder;
 use monoio_compat::{AsyncReadExt, AsyncWriteExt};
 use rand::RngCore;
 use sha1::{Digest, Sha1};
+use smallvec::SmallVec;
+use std::io::{Error as IoError, ErrorKind};
 
 const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -55,32 +58,67 @@ pub async fn write_request<S>(
 where
     S: AsyncWriteExt + Unpin,
 {
-    // Write HTTP request line by line to avoid string allocation
-    stream.write_all(b"GET ").await?;
-    stream.write_all(path_and_query.as_bytes()).await?;
-    stream.write_all(b" HTTP/1.1\r\nHost: ").await?;
-    stream.write_all(host.as_bytes()).await?;
-    stream
-        .write_all(
-            b"\r\nUpgrade: websocket\r\n\
-          Connection: Upgrade\r\n\
-          Sec-WebSocket-Version: 13\r\n\
-          Sec-WebSocket-Key: ",
-        )
-        .await?;
-    stream.write_all(sec_websocket_key.as_bytes()).await?;
-    stream.write_all(b"\r\n").await?;
+    const REQUEST_PREFIX: &[u8] = b"GET ";
+    const REQUEST_SUFFIX: &[u8] = b" HTTP/1.1\r\nHost: ";
+    const UPGRADE_HEADERS: &[u8] = b"\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ";
+    const HEADER_SEPARATOR: &[u8] = b": ";
+    const CRLF: &[u8] = b"\r\n";
 
-    // Write extra headers
+    let extra_headers_len = extra_headers.iter().try_fold(0usize, |acc, (k, v)| {
+        acc.checked_add(k.as_bytes().len())
+            .and_then(|len| len.checked_add(HEADER_SEPARATOR.len()))
+            .and_then(|len| len.checked_add(v.as_bytes().len()))
+            .and_then(|len| len.checked_add(CRLF.len()))
+            .ok_or_else(|| {
+                UpgradeErr::Io(IoError::new(
+                    ErrorKind::Other,
+                    "extra headers exceed maximum buffer size",
+                ))
+            })
+    })?;
+
+    let base_len = REQUEST_PREFIX.len()
+        + path_and_query.as_bytes().len()
+        + REQUEST_SUFFIX.len()
+        + host.as_bytes().len()
+        + UPGRADE_HEADERS.len()
+        + sec_websocket_key.as_bytes().len()
+        + CRLF.len() // after Sec-WebSocket-Key
+        + CRLF.len(); // terminating CRLF
+
+    let total_len = base_len.checked_add(extra_headers_len).ok_or_else(|| {
+        UpgradeErr::Io(IoError::new(
+            ErrorKind::Other,
+            "request headers exceed maximum buffer size",
+        ))
+    })?;
+
+    let mut buffer = SmallVec::<[u8; 512]>::new();
+    buffer.try_reserve(total_len).map_err(|_| {
+        UpgradeErr::Io(IoError::new(
+            ErrorKind::Other,
+            "failed to reserve request buffer",
+        ))
+    })?;
+
+    buffer.extend_from_slice(REQUEST_PREFIX);
+    buffer.extend_from_slice(path_and_query.as_bytes());
+    buffer.extend_from_slice(REQUEST_SUFFIX);
+    buffer.extend_from_slice(host.as_bytes());
+    buffer.extend_from_slice(UPGRADE_HEADERS);
+    buffer.extend_from_slice(sec_websocket_key.as_bytes());
+    buffer.extend_from_slice(CRLF);
+
     for (k, v) in extra_headers {
-        stream.write_all(k.as_bytes()).await?;
-        stream.write_all(b": ").await?;
-        stream.write_all(v.as_bytes()).await?;
-        stream.write_all(b"\r\n").await?;
+        buffer.extend_from_slice(k.as_bytes());
+        buffer.extend_from_slice(HEADER_SEPARATOR);
+        buffer.extend_from_slice(v.as_bytes());
+        buffer.extend_from_slice(CRLF);
     }
 
-    // End headers
-    stream.write_all(b"\r\n").await?;
+    buffer.extend_from_slice(CRLF);
+
+    stream.write_all(&buffer).await?;
     stream.flush().await?;
     Ok(())
 }
@@ -92,8 +130,16 @@ where
     let mut hdr = Vec::with_capacity(2048);
     let mut chunk = [0u8; 1024];
     let mut headers = [httparse::EMPTY_HEADER; 32];
+    let finder = Finder::new(b"\r\n\r\n");
+    let mut scan_pos = 0;
 
-    while !hdr.windows(4).any(|w| w == b"\r\n\r\n") {
+    loop {
+        if finder.find(&hdr[scan_pos..]).is_some() {
+            break;
+        }
+
+        scan_pos = hdr.len().saturating_sub(3);
+
         let n = stream.read(&mut chunk).await?;
         if n == 0 {
             return Err(UpgradeErr::Eof);

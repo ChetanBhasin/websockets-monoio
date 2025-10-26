@@ -37,6 +37,7 @@ pub async fn connect_wss(
     connector: &TlsConnector,
 ) -> Result<ClientTlsStream<TcpStream>, TlsErr> {
     let tcp = TcpStream::connect((host, port)).await?;
+    tcp.set_nodelay(true)?;
     let dns = ServerName::try_from(host.to_owned()).map_err(|_| TlsErr::Dns)?;
     let tls = connector.connect(dns, tcp).await?;
     Ok(tls)
